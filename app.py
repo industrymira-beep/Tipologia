@@ -3,6 +3,7 @@ import streamlit as st
 import yadisk
 import json
 import io
+import re # Импортируем модуль для работы с регулярными выражениями
 import streamlit.components.v1 as components 
 from openai import OpenAI
 from dotenv import load_dotenv
@@ -11,16 +12,20 @@ from dotenv import load_dotenv
 load_dotenv() 
 
 def get_secret(key):
-    # Пытаемся получить секрет из облака (st.secrets)
     try:
         if key in st.secrets:
             return st.secrets[key]
     except Exception:
-        # Если файла секретов нет (локальный запуск), просто пропускаем ошибку
         pass
-    
-    # Если не нашли в облаке (или запущено локально), берем из .env
     return os.getenv(key)
+
+def clean_markdown(text):
+    """Очищает текст от символов Markdown для красивого копирования"""
+    text = re.sub(r'^#+\s*', '', text, flags=re.MULTILINE) # Заголовки
+    text = re.sub(r'\*\*(.*?)\*\*', r'\1', text)           # Жирный
+    text = re.sub(r'\*(.*?)\*', r'\1', text)               # Курсив
+    text = re.sub(r'^\s*[\-\*\+]\s+', '• ', text, flags=re.MULTILINE) # Списки
+    return text
 
 # --- Настройки страницы ---
 st.set_page_config(page_title="Анализ Индивидов", page_icon="🧠", layout="wide")
@@ -94,7 +99,6 @@ files_cat4 = get_files_from_yadisk(PATH_CAT4)
 with st.sidebar:
     st.header("⚙️ Настройки")
     
-    # Кнопка "Новый анализ" в самом верху
     if st.button("🔄 Новый анализ", type="primary", use_container_width=True):
         st.session_state.messages = []
         st.rerun()
@@ -112,7 +116,7 @@ with st.sidebar:
     ind1_f4 = st.selectbox("Category 4 (КИ/ПИ/ЭИ)", files_cat4, key="i1f4")
     
     st.divider()
-    st.subheader("👥 Индивид 2") # Убрали "(Опционально)"
+    st.subheader("👥 Индивид 2")
     use_ind2 = st.checkbox("Добавить второго индивида")
     ind2_f1 = st.selectbox("Category 1 (Тип)", files_cat1, key="i2f1", disabled=not use_ind2)
     ind2_f2 = st.selectbox("Category 2 (Ценность)", files_cat2, key="i2f2", disabled=not use_ind2)
@@ -126,19 +130,15 @@ st.markdown("Выберите файлы в левой панели и зада�
 if "messages" not in st.session_state:
     st.session_state.messages = []
 
-# Отображаем историю сообщений
 for message in st.session_state.messages:
     with st.chat_message(message["role"]):
         st.markdown(message["content"])
 
-# Поле ввода для чата
 if prompt := st.chat_input("Задайте вопрос..."):
-    # 1. Добавляем сообщение пользователя в историю
     st.session_state.messages.append({"role": "user", "content": prompt})
     with st.chat_message("user"):
         st.markdown(prompt)
 
-    # 2. Готовим контекст и получаем ответ
     with st.chat_message("assistant"):
         with st.spinner("Анализирую файлы..."):
             context = ""
@@ -166,19 +166,16 @@ if prompt := st.chat_input("Задайте вопрос..."):
                 
                 answer_text = response.choices[0].message.content
                 
-                # Очистка текста от HTML-тегов
                 answer_text = answer_text.replace("<br>", "\n").replace("<br/>", "\n").replace("<br />", "\n")
                 answer_text = answer_text.replace("•", "-")
                 
-                # Отображаем ответ
                 st.markdown(answer_text)
-                
-                # Добавляем ответ в историю
                 st.session_state.messages.append({"role": "assistant", "content": answer_text})
                 
-                # --- Кнопка Копировать (сохраняет структуру) ---
-                # json.dumps безопасно экранирует все переносы строк \n и кавычки для JS
-                js_text = json.dumps(answer_text) 
+                # --- Кнопка Копировать (ОЧИЩЕННЫЙ ТЕКСТ) ---
+                copy_text = clean_markdown(answer_text) # Очищаем от ### и **
+                js_text = json.dumps(copy_text) 
+                
                 copy_html = f"""
                 <button onclick="copyToClipboard(this)" style="width: auto; padding: 0 15px; height: 30px; background-color: transparent; color: #ff4b4b; border: 1px solid #ff4b4b; border-radius: 0.25rem; cursor: pointer; font-size: 14px; font-family: 'Source Sans Pro', sans-serif; margin-top: 5px;">
                     📋 Копировать текст
