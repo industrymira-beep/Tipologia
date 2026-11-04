@@ -3,7 +3,7 @@ import streamlit as st
 import yadisk
 import json
 import io
-import re # Импортируем модуль для работы с регулярными выражениями
+import re # Модуль для очистки текста
 import streamlit.components.v1 as components 
 from openai import OpenAI
 from dotenv import load_dotenv
@@ -21,14 +21,20 @@ def get_secret(key):
 
 def clean_markdown(text):
     """Очищает текст от символов Markdown для красивого копирования"""
-    text = re.sub(r'^#+\s*', '', text, flags=re.MULTILINE) # Заголовки
-    text = re.sub(r'\*\*(.*?)\*\*', r'\1', text)           # Жирный
-    text = re.sub(r'\*(.*?)\*', r'\1', text)               # Курсив
+    text = re.sub(r'^#+\s*', '', text, flags=re.MULTILINE) # Убираем заголовки (###)
+    text = re.sub(r'\*\*(.*?)\*\*', r'\1', text)           # Убираем жирный (**)
+    text = re.sub(r'\*(.*?)\*', r'\1', text)               # Убираем курсив (*)
     text = re.sub(r'^\s*[\-\*\+]\s+', '• ', text, flags=re.MULTILINE) # Списки
     return text
 
 # --- Настройки страницы ---
-st.set_page_config(page_title="Анализ Индивидов", page_icon="🧠", layout="wide")
+# ВАЖНО: Добавили initial_sidebar_state="expanded" чтобы меню всегда было открыто
+st.set_page_config(
+    page_title="Анализ Индивидов", 
+    page_icon="🧠", 
+    layout="wide",
+    initial_sidebar_state="expanded" 
+)
 
 # --- ПРОВЕРКА АВТОРИЗАЦИИ ---
 if "authenticated" not in st.session_state:
@@ -173,7 +179,7 @@ if prompt := st.chat_input("Задайте вопрос..."):
                 st.session_state.messages.append({"role": "assistant", "content": answer_text})
                 
                 # --- Кнопка Копировать (ОЧИЩЕННЫЙ ТЕКСТ) ---
-                copy_text = clean_markdown(answer_text) # Очищаем от ### и **
+                copy_text = clean_markdown(answer_text) 
                 js_text = json.dumps(copy_text) 
                 
                 copy_html = f"""
