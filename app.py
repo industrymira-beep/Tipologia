@@ -11,8 +11,15 @@ from dotenv import load_dotenv
 load_dotenv() 
 
 def get_secret(key):
-    if key in st.secrets:
-        return st.secrets[key]
+    # Пытаемся получить секрет из облака (st.secrets)
+    try:
+        if key in st.secrets:
+            return st.secrets[key]
+    except Exception:
+        # Если файла секретов нет (локальный запуск), просто пропускаем ошибку
+        pass
+    
+    # Если не нашли в облаке (или запущено локально), берем из .env
     return os.getenv(key)
 
 # --- Настройки страницы ---
